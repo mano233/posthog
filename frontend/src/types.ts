@@ -129,8 +129,8 @@ export enum AvailableFeature {
     PATHS = 'paths',
     INSIGHTS = 'insights',
     SUBSCRIPTIONS = 'subscriptions',
-    DASHBOARD_COLLABORATION = 'dashboard_collaboration',
-    DASHBOARD_PERMISSIONING = 'dashboard_permissioning',
+    TEAM_COLLABORATION = 'team_collaboration',
+    ADVANCED_PERMISSIONS = 'advanced_permissions',
     INGESTION_TAXONOMY = 'ingestion_taxonomy',
     PATHS_ADVANCED = 'paths_advanced',
     CORRELATION_ANALYSIS = 'correlation_analysis',
@@ -141,6 +141,8 @@ export enum AvailableFeature {
     AUTOCAPTURE = 'autocapture',
     DATA_VISUALIZATION = 'data_visualization',
     PRODUCT_ANALYTICS_SQL_QUERIES = 'product_analytics_sql_queries',
+    TWOFA_ENFORCEMENT = '2fa_enforcement',
+    AUDIT_LOGS = 'audit_logs',
 }
 
 type AvailableFeatureUnion = `${AvailableFeature}`
@@ -298,6 +300,7 @@ export interface OrganizationType extends OrganizationBasicType {
     customer_id: string | null
     enforce_2fa: boolean | null
     metadata?: OrganizationMetadata
+    member_count: number
 }
 
 export interface OrganizationDomainType {
@@ -328,7 +331,6 @@ export interface OrganizationMemberType extends BaseMemberType {
     /** Level at which the user is in the organization. */
     level: OrganizationMembershipLevel
     is_2fa_enabled: boolean
-    has_social_auth: boolean
 }
 
 export interface ExplicitTeamMemberType extends BaseMemberType {
@@ -357,6 +359,12 @@ export interface FusedTeamMemberType extends BaseMemberType {
     organization_level: OrganizationMembershipLevel
     /** Effective level of the user within the project. */
     level: OrganizationMembershipLevel
+}
+
+export interface ListOrganizationMembersParams {
+    offset?: number
+    limit?: number
+    updated_after?: string
 }
 
 export interface APIErrorType {
@@ -584,6 +592,7 @@ export enum ReplayTabs {
     Recent = 'recent',
     Playlists = 'playlists',
     FilePlayback = 'file-playback',
+    Errors = 'errors',
 }
 
 export enum ExperimentsTabs {
@@ -658,6 +667,7 @@ export interface EventPropertyFilter extends BasePropertyFilter {
 export interface PersonPropertyFilter extends BasePropertyFilter {
     type: PropertyFilterType.Person
     operator: PropertyOperator
+    table?: string
 }
 
 export interface DataWarehousePropertyFilter extends BasePropertyFilter {
@@ -867,7 +877,7 @@ export interface RecordingDurationFilter extends BasePropertyFilter {
 
 export type DurationType = 'duration' | 'active_seconds' | 'inactive_seconds'
 
-export type FilterableLogLevel = 'log' | 'warn' | 'error'
+export type FilterableLogLevel = 'info' | 'warn' | 'error'
 export interface RecordingFilters {
     date_from?: string | null
     date_to?: string | null
@@ -885,6 +895,14 @@ export interface SessionRecordingsResponse {
     results: SessionRecordingType[]
     has_next: boolean
 }
+
+type ErrorCluster = {
+    cluster: number
+    samples: { session_id: string; message: string }[]
+    occurrences: number
+    unique_sessions: number
+}
+export type ErrorClusterResponse = ErrorCluster[] | null
 
 export type EntityType = 'actions' | 'events' | 'data_warehouse' | 'new_entity'
 
@@ -1454,6 +1472,7 @@ export interface BillingV2PlanType {
     product_key: ProductKeyUnion
     current_plan?: any
     tiers?: BillingV2TierType[] | null
+    unit_amount_usd?: string
     included_if?: 'no_active_subscription' | 'has_subscription' | null
     initial_billing_limit?: number
     contact_support?: boolean
@@ -1532,7 +1551,7 @@ export interface InsightModel extends Cacheable {
     created_at: string
     created_by: UserBasicType | null
     is_sample: boolean
-    /** @deprecated Use `dashboard_tiles instead */
+    /** @deprecated Use `dashboard_tiles` instead */
     dashboards: number[] | null
     dashboard_tiles: DashboardTileBasicType[] | null
     updated_at: string
@@ -2366,7 +2385,7 @@ export interface Survey {
     linked_flag_id: number | null
     linked_flag: FeatureFlagBasicType | null
     targeting_flag: FeatureFlagBasicType | null
-    targeting_flag_filters: Pick<FeatureFlagFilters, 'groups'> | undefined
+    targeting_flag_filters?: FeatureFlagFilters
     conditions: {
         url: string
         selector: string
@@ -2780,6 +2799,9 @@ export interface PropertyDefinition {
     verified?: boolean
     verified_at?: string
     verified_by?: string
+
+    // For Data warehouse person properties
+    table?: string
 }
 
 export enum PropertyDefinitionState {
@@ -2792,9 +2814,10 @@ export enum PropertyDefinitionState {
 export type Definition = EventDefinition | PropertyDefinition
 
 export interface PersonProperty {
-    id: number
+    id: string | number
     name: string
     count: number
+    table?: string
 }
 
 export type GroupTypeIndex = 0 | 1 | 2 | 3 | 4

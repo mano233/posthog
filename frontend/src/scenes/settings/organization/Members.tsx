@@ -1,5 +1,6 @@
 import { LemonInput, LemonModal, LemonSwitch } from '@posthog/lemon-ui'
 import { useActions, useValues } from 'kea'
+import { PayGateMini } from 'lib/components/PayGateMini/PayGateMini'
 import { TZLabel } from 'lib/components/TZLabel'
 import { OrganizationMembershipLevel } from 'lib/constants'
 import { LemonButton } from 'lib/lemon-ui/LemonButton'
@@ -16,14 +17,14 @@ import {
     membershipLevelToName,
     organizationMembershipLevelIntegers,
 } from 'lib/utils/permissioning'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Setup2FA } from 'scenes/authentication/Setup2FA'
 import { membersLogic } from 'scenes/organization/membersLogic'
 import { organizationLogic } from 'scenes/organizationLogic'
 import { preflightLogic } from 'scenes/PreflightCheck/preflightLogic'
 import { userLogic } from 'scenes/userLogic'
 
-import { OrganizationMemberType } from '~/types'
+import { AvailableFeature, OrganizationMemberType } from '~/types'
 
 function ActionsComponent(_: any, member: OrganizationMemberType): JSX.Element | null {
     const { user } = useValues(userLogic)
@@ -135,8 +136,8 @@ function ActionsComponent(_: any, member: OrganizationMemberType): JSX.Element |
 
 export function Members(): JSX.Element | null {
     const { filteredMembers, membersLoading, search } = useValues(membersLogic)
+    const { setSearch, ensureAllMembersLoaded, loadAllMembers } = useActions(membersLogic)
     const { currentOrganization } = useValues(organizationLogic)
-    const { setSearch } = useActions(membersLogic)
     const { updateOrganization } = useActions(organizationLogic)
     const [is2FAModalVisible, set2FAModalVisible] = useState(false)
     const { preflight } = useValues(preflightLogic)
@@ -145,6 +146,10 @@ export function Members(): JSX.Element | null {
     if (!user) {
         return null
     }
+
+    useEffect(() => {
+        ensureAllMembersLoaded()
+    }, [])
 
     const columns: LemonTableColumns<OrganizationMemberType> = [
         {
@@ -211,7 +216,7 @@ export function Members(): JSX.Element | null {
                                     onSuccess={() => {
                                         set2FAModalVisible(false)
                                         userLogic.actions.updateUser({})
-                                        membersLogic.actions.loadMembers()
+                                        loadAllMembers()
                                     }}
                                 />
                             </LemonModal>
@@ -262,18 +267,10 @@ export function Members(): JSX.Element | null {
 
     return (
         <>
-            <div className="flex items-center justify-between">
-                <LemonInput type="search" placeholder="Search for members" value={search} onChange={setSearch} />
-                <LemonSwitch
-                    label="Enforce 2FA"
-                    bordered
-                    checked={currentOrganization?.enforce_2fa ? true : false}
-                    onChange={(enforce_2fa) => updateOrganization({ enforce_2fa })}
-                />
-            </div>
+            <LemonInput type="search" placeholder="Search for members" value={search} onChange={setSearch} />
 
             <LemonTable
-                dataSource={filteredMembers}
+                dataSource={filteredMembers ?? []}
                 columns={columns}
                 rowKey="id"
                 style={{ marginTop: '1rem' }}
@@ -282,6 +279,16 @@ export function Members(): JSX.Element | null {
                 defaultSorting={{ columnKey: 'level', order: -1 }}
                 pagination={{ pageSize: 50 }}
             />
+            <h3 className="mt-4">Two-factor authentication</h3>
+            <PayGateMini feature={AvailableFeature.TWOFA_ENFORCEMENT}>
+                <p>Require all organization members to use two-factor authentication.</p>
+                <LemonSwitch
+                    label="Enforce 2FA"
+                    bordered
+                    checked={!!currentOrganization?.enforce_2fa}
+                    onChange={(enforce_2fa) => updateOrganization({ enforce_2fa })}
+                />
+            </PayGateMini>
         </>
     )
 }

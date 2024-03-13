@@ -20,19 +20,17 @@ from sentry_sdk.api import capture_exception, start_span
 from statshog.defaults.django import statsd
 from token_bucket import Limiter, MemoryStorage
 
+from ee.billing.quota_limiting import QuotaLimitingCaches
 from posthog.api.utils import get_data, get_token, safe_clickhouse_string
 from posthog.exceptions import generate_exception_response
-from posthog.kafka_client.client import (
-    KafkaProducer,
-    sessionRecordingKafkaProducer,
-)
+from posthog.kafka_client.client import KafkaProducer, sessionRecordingKafkaProducer
 from posthog.kafka_client.topics import (
     KAFKA_EVENTS_PLUGIN_INGESTION_HISTORICAL,
     KAFKA_SESSION_RECORDING_EVENTS,
     KAFKA_SESSION_RECORDING_SNAPSHOT_ITEM_EVENTS,
 )
 from posthog.logging.timing import timed
-from posthog.metrics import LABEL_RESOURCE_TYPE, KLUDGES_COUNTER
+from posthog.metrics import KLUDGES_COUNTER, LABEL_RESOURCE_TYPE
 from posthog.models.utils import UUIDT
 from posthog.session_recordings.session_recording_helpers import (
     preprocess_replay_events_for_blob_ingestion,

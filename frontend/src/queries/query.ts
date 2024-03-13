@@ -46,13 +46,14 @@ const QUERY_ASYNC_TOTAL_POLL_SECONDS = 300
 export function queryExportContext<N extends DataNode = DataNode>(
     query: N,
     methodOptions?: ApiMethodOptions,
-    refresh?: boolean
+    refresh?: boolean,
+    maintainLegacy: boolean = true
 ): OnlineExportContext | QueryExportContext {
     if (isInsightVizNode(query) || isDataTableNode(query) || isDataVisualizationNode(query)) {
-        return queryExportContext(query.source, methodOptions, refresh)
+        return queryExportContext(query.source, methodOptions, refresh, maintainLegacy)
     } else if (isPersonsNode(query)) {
         return { path: getPersonsEndpoint(query) }
-    } else if (isInsightQueryNode(query)) {
+    } else if (isInsightQueryNode(query) && maintainLegacy) {
         return legacyInsightQueryExportContext({
             filters: queryNodeToFilter(query),
             currentTeamId: getCurrentTeamId(),
@@ -251,8 +252,12 @@ export async function query<N extends DataNode = DataNode>(
                         res2 = res2[0]?.people.map((n: any) => n.id)
                         res1 = res1.map((n: any) => n[0].id)
                         // Sort, since the order of the results is not guaranteed
-                        res1.sort()
-                        res2.sort()
+                        res1.sort((a: any, b: any) =>
+                            (a.breakdown_value ?? a.label ?? a).localeCompare(b.breakdown_value ?? b.label ?? b)
+                        )
+                        res2.sort((a: any, b: any) =>
+                            (a.breakdown_value ?? a.label ?? a).localeCompare(b.breakdown_value ?? b.label ?? b)
+                        )
                     }
 
                     const getTimingDiff = (): undefined | { diff: number; legacy: number; hogql: number } => {
